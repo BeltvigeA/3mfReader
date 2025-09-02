@@ -5,6 +5,7 @@ import path from 'node:path';
 import AdmZip from 'adm-zip';
 import B2 from 'backblaze-b2';
 import { parseMetadata } from './metadataUtils.js';
+import { parseGcode } from './gcodeUtils.js';
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -41,8 +42,9 @@ app.post('/process-file', upload.single('file'), async (req, res) => {
     const image = imageEntry ? imageEntry.getData().toString('base64') : null;
     const gcodeEntry = zip.getEntry('plate.gcode');
     const gcodeData = gcodeEntry ? gcodeEntry.getData().toString() : null;
+    const gcodeInfo = gcodeData ? parseGcode(gcodeData) : {};
 
-    res.json({ metadata, image, gcodeData });
+    res.json({ metadata, gcodeInfo, image, gcodeData });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
