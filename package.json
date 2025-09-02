@@ -1,7 +1,7 @@
 {
   "name": "mto-express",
   "version": "1.0.0",
-  "description": "API for processing 3D printer .gcode.3mf files",
+  "description": "API for processing 3D printer .gcode.3mf files and uploading to Google Cloud Storage",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -11,14 +11,14 @@
   "keywords": [
     "3mf",
     "gcode",
-    "backblaze"
+    "google-cloud"
   ],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
     "adm-zip": "^0.5.12",
-    "backblaze-b2": "^2.0.0",
+    "@google-cloud/storage": "^7.14.0",
     "express": "^4.19.2",
     "multer": "^1.4.5",
     "xml2js": "^0.6.2"
