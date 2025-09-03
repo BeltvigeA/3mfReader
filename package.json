@@ -11,14 +11,13 @@
   "keywords": [
     "3mf",
     "gcode",
-    "backblaze"
+    "3d printing"
   ],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
     "adm-zip": "^0.5.12",
-    "backblaze-b2": "^2.0.0",
     "express": "^4.19.2",
     "multer": "^1.4.5",
     "xml2js": "^0.6.2"
