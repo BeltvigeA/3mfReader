@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import AdmZip from 'adm-zip';
 import { parseMetadata } from './metadataUtils.js';
 import { parseGcode } from './gcodeUtils.js';
+import { generateObjectOrdering } from './imageOrderUtils.js';
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -35,15 +36,41 @@ export async function processFileHandler(req, res) {
     const gcodeInfo = gcodeData ? parseGcode(gcodeData) : {};
 
     const pickImageEntry = getEntryCaseInsensitive(zip, 'Metadata/pick_1.png');
-    const pickImage = pickImageEntry ? pickImageEntry.getData().toString('base64') : null;
+    const pickImageBuffer = pickImageEntry ? pickImageEntry.getData() : null;
+    const pickImage = pickImageBuffer ? pickImageBuffer.toString('base64') : null;
 
     const topImageEntry = getEntryCaseInsensitive(zip, 'Metadata/top_1.png');
-    const topImage = topImageEntry ? topImageEntry.getData().toString('base64') : null;
+    const topImageBuffer = topImageEntry ? topImageEntry.getData() : null;
+    const topImage = topImageBuffer ? topImageBuffer.toString('base64') : null;
+
+    let objectOrdering = [];
+    let annotatedTopImage = null;
+    if (pickImageBuffer && topImageBuffer) {
+      try {
+        const { orderedObjects, annotatedImage } = generateObjectOrdering(pickImageBuffer, topImageBuffer);
+        objectOrdering = orderedObjects;
+        annotatedTopImage = annotatedImage ? annotatedImage.toString('base64') : null;
+      } catch (processingError) {
+        objectOrdering = [];
+        annotatedTopImage = null;
+        console.warn('Failed to build annotated top image:', processingError);
+      }
+    }
 
     const sliceInfoEntry = getEntryCaseInsensitive(zip, 'Metadata/slice_info.config');
     const sliceInfoConfig = sliceInfoEntry ? sliceInfoEntry.getData().toString() : null;
 
-    res.json({ metadata, gcodeInfo, image, gcodeData, pickImage, topImage, sliceInfoConfig });
+    res.json({
+      metadata,
+      gcodeInfo,
+      image,
+      gcodeData,
+      pickImage,
+      topImage,
+      sliceInfoConfig,
+      objectOrdering,
+      annotatedTopImage
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   } finally {
