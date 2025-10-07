@@ -8,6 +8,24 @@ const parserOptions = {
   trim: true
 };
 
+async function parseXmlDocument(xmlString) {
+  if (typeof xmlString !== 'string') {
+    return null;
+  }
+
+  const trimmed = xmlString.trim();
+  if (trimmed === '') {
+    return null;
+  }
+
+  try {
+    const parser = new Parser(parserOptions);
+    return await parser.parseStringPromise(trimmed);
+  } catch (error) {
+    return null;
+  }
+}
+
 function toArray(value) {
   if (Array.isArray(value)) {
     return value;
@@ -86,20 +104,7 @@ function buildPlate(plateNode) {
   const plateObjectsRaw = [];
   collectObjectNodes(plateNode, plateObjectsRaw);
 
-  const objects = plateObjectsRaw.map(objectNode => {
-    const objectAttributes = { ...(objectNode.attributes ?? {}) };
-    const identifyId = objectAttributes.identify_id ?? objectAttributes.identifyId ?? null;
-    const name = objectAttributes.name ?? null;
-    const skipped = parseSkippedFlag(objectAttributes.skipped);
-
-    return {
-      identifyId,
-      name,
-      skipped,
-      attributes: objectAttributes,
-      raw: objectNode
-    };
-  });
+  const objects = plateObjectsRaw.map(objectNode => mapObjectNode(objectNode));
 
   return {
     attributes: plateAttributes,
@@ -136,21 +141,24 @@ function collectPlates(node, plates) {
   });
 }
 
+function mapObjectNode(objectNode) {
+  const objectAttributes = { ...(objectNode.attributes ?? {}) };
+  const identifyId = objectAttributes.identify_id ?? objectAttributes.identifyId ?? null;
+  const name = objectAttributes.name ?? null;
+  const skipped = parseSkippedFlag(objectAttributes.skipped);
+
+  return {
+    identifyId,
+    name,
+    skipped,
+    attributes: objectAttributes,
+    raw: objectNode
+  };
+}
+
 export async function parseMetadata(xmlString) {
-  if (typeof xmlString !== 'string') {
-    return { tree: null, plates: [], objects: [] };
-  }
-
-  const trimmed = xmlString.trim();
-  if (trimmed === '') {
-    return { tree: null, plates: [], objects: [] };
-  }
-
-  let tree;
-  try {
-    const parser = new Parser(parserOptions);
-    tree = await parser.parseStringPromise(trimmed);
-  } catch (error) {
+  const tree = await parseXmlDocument(xmlString);
+  if (!tree) {
     return { tree: null, plates: [], objects: [] };
   }
 
@@ -166,4 +174,25 @@ export async function parseMetadata(xmlString) {
   })));
 
   return { tree, plates, objects };
+}
+
+export async function parseConfigObjects(xmlString) {
+  const tree = await parseXmlDocument(xmlString);
+  if (!tree) {
+    return { tree: null, objects: [] };
+  }
+
+  const objectNodes = [];
+  collectObjectNodes(tree, objectNodes);
+  const objects = objectNodes.map(objectNode => mapObjectNode(objectNode));
+
+  return { tree, objects };
+}
+
+export async function parseSliceInfoConfig(xmlString) {
+  return parseConfigObjects(xmlString);
+}
+
+export async function parseModelSettingsConfig(xmlString) {
+  return parseConfigObjects(xmlString);
 }

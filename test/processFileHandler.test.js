@@ -39,7 +39,15 @@ async function invokeHandlerWithBuffer(zipBuffer) {
 
 test('process-file returns auxiliary metadata assets when available', async () => {
   const zip = new AdmZip();
-  zip.addFile('Metadata/metadata.xml', Buffer.from('<meta>example</meta>'));
+  const metadataXml = `<?xml version="1.0"?>
+    <config>
+      <plate index="1">
+        <object identify_id="101" name="First" skipped="false" />
+        <object identify_id="205" name="Second" skipped="false" />
+        <object identify_id="307" name="Third" skipped="true" />
+      </plate>
+    </config>`;
+  zip.addFile('Metadata/metadata.xml', Buffer.from(metadataXml));
   zip.addFile('Metadata/plate_1.png', Buffer.from('main-image'));
   const imageWidth = 10;
   const imageHeight = 10;
@@ -69,7 +77,19 @@ test('process-file returns auxiliary metadata assets when available', async () =
 
   zip.addFile('metadata/pick_1.png', pickImageBuffer);
   zip.addFile('Metadata/top_1.png', topImageBuffer);
-  zip.addFile('metadata/slice_info.config', Buffer.from('slice configuration data'));
+  const sliceInfoXml = `<?xml version="1.0"?>
+    <config>
+      <object identify_id="101" name="First Slice" skipped="false" />
+      <object identify_id="150" name="Intermediate" skipped="false" />
+      <object identify_id="205" name="Second Slice" skipped="false" />
+    </config>`;
+  zip.addFile('metadata/slice_info.config', Buffer.from(sliceInfoXml));
+  const modelSettingsXml = `<?xml version="1.0"?>
+    <settings>
+      <model identify_id="205" name="Second" skipped="false" />
+      <model identify_id="400" name="Extra" skipped="false" />
+    </settings>`;
+  zip.addFile('Metadata/model_settings.config', Buffer.from(modelSettingsXml));
   zip.addFile('plate.gcode', Buffer.from(';model printing time: 120'));
 
   const response = await invokeHandlerWithBuffer(zip.toBuffer());
@@ -77,12 +97,24 @@ test('process-file returns auxiliary metadata assets when available', async () =
   assert.equal(response.statusCode, 200);
   assert.equal(response.payload.pickImage, pickImageBuffer.toString('base64'));
   assert.equal(response.payload.topImage, topImageBuffer.toString('base64'));
-  assert.equal(response.payload.sliceInfoConfig, 'slice configuration data');
+  assert.equal(response.payload.sliceInfoConfig, sliceInfoXml);
+  assert.equal(response.payload.modelSettingsConfig, modelSettingsXml);
   assert.ok(Array.isArray(response.payload.objectOrdering));
   assert.equal(response.payload.objectOrdering.length, 3);
   assert.equal(response.payload.objectOrdering[0].rank, 1);
   assert.equal(response.payload.objectOrdering[0].color.r, 255);
   assert.ok(typeof response.payload.annotatedTopImage === 'string');
+  assert.equal(response.payload.sliceInfoMatchCount, 2);
+  assert.equal(response.payload.modelSettingsMatchCount, 1);
+  assert.equal(response.payload.sliceInfoOrderedObjects.length, 3);
+  assert.deepEqual(
+    response.payload.sliceInfoOrderedObjects.map(entry => ({ rank: entry.rank, identifyId: entry.identifyId })),
+    [
+      { rank: 1, identifyId: '101' },
+      { rank: 2, identifyId: '150' },
+      { rank: 3, identifyId: '205' }
+    ]
+  );
 
   const annotatedBuffer = Buffer.from(response.payload.annotatedTopImage, 'base64');
   const decodedAnnotated = decodeRgbaPng(annotatedBuffer);
@@ -111,6 +143,10 @@ test('process-file omits auxiliary metadata assets when unavailable', async () =
   assert.equal(response.payload.pickImage, null);
   assert.equal(response.payload.topImage, null);
   assert.equal(response.payload.sliceInfoConfig, null);
+  assert.equal(response.payload.modelSettingsConfig, null);
   assert.deepEqual(response.payload.objectOrdering, []);
   assert.equal(response.payload.annotatedTopImage, null);
+  assert.equal(response.payload.sliceInfoMatchCount, 0);
+  assert.equal(response.payload.modelSettingsMatchCount, 0);
+  assert.deepEqual(response.payload.sliceInfoOrderedObjects, []);
 });
