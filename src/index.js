@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import fs from 'node:fs/promises';
 import AdmZip from 'adm-zip';
-import { parseMetadata } from './metadataUtils.js';
+import { parseMetadata, parseModelSettingsObjects } from './metadataUtils.js';
 import { parseGcode } from './gcodeUtils.js';
 import { generateObjectOrdering } from './imageOrderUtils.js';
 
@@ -60,6 +60,21 @@ export async function processFileHandler(req, res) {
     const sliceInfoEntry = getEntryCaseInsensitive(zip, 'Metadata/slice_info.config');
     const sliceInfoConfig = sliceInfoEntry ? sliceInfoEntry.getData().toString() : null;
 
+    const modelSettingsEntry = getEntryCaseInsensitive(zip, 'Metadata/model_settings.config');
+    const modelSettingsConfig = modelSettingsEntry ? modelSettingsEntry.getData().toString() : null;
+
+    let modelSettingsIntersectionCount = 0;
+    if (modelSettingsConfig) {
+      const modelSettingsObjects = parseModelSettingsObjects(modelSettingsConfig);
+      if (modelSettingsObjects.length > 0) {
+        const plateIdentifiers = new Set(objectOrdering.map(object => String(object.rank)));
+        modelSettingsIntersectionCount = modelSettingsObjects.reduce(
+          (count, identifier) => (plateIdentifiers.has(identifier) ? count + 1 : count),
+          0
+        );
+      }
+    }
+
     res.json({
       metadata,
       gcodeInfo,
@@ -68,6 +83,8 @@ export async function processFileHandler(req, res) {
       pickImage,
       topImage,
       sliceInfoConfig,
+      modelSettingsConfig,
+      modelSettingsIntersectionCount,
       objectOrdering,
       annotatedTopImage
     });
