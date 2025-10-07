@@ -71,6 +71,13 @@ test('process-file returns auxiliary metadata assets when available', async () =
   zip.addFile('Metadata/top_1.png', topImageBuffer);
   zip.addFile('metadata/slice_info.config', Buffer.from('slice configuration data'));
   zip.addFile('plate.gcode', Buffer.from(';model printing time: 120'));
+  const modelSettingsConfig = JSON.stringify({
+    objects: [
+      { id: '1', name: 'Widget A' },
+      { id: '99', name: 'Widget B' }
+    ]
+  });
+  zip.addFile('Metadata/model_settings.config', Buffer.from(modelSettingsConfig));
 
   const response = await invokeHandlerWithBuffer(zip.toBuffer());
 
@@ -78,6 +85,8 @@ test('process-file returns auxiliary metadata assets when available', async () =
   assert.equal(response.payload.pickImage, pickImageBuffer.toString('base64'));
   assert.equal(response.payload.topImage, topImageBuffer.toString('base64'));
   assert.equal(response.payload.sliceInfoConfig, 'slice configuration data');
+  assert.equal(response.payload.modelSettingsConfig, modelSettingsConfig);
+  assert.equal(response.payload.modelSettingsIntersectionCount, 1);
   assert.ok(Array.isArray(response.payload.objectOrdering));
   assert.equal(response.payload.objectOrdering.length, 3);
   assert.equal(response.payload.objectOrdering[0].rank, 1);
@@ -111,6 +120,8 @@ test('process-file omits auxiliary metadata assets when unavailable', async () =
   assert.equal(response.payload.pickImage, null);
   assert.equal(response.payload.topImage, null);
   assert.equal(response.payload.sliceInfoConfig, null);
+  assert.equal(response.payload.modelSettingsConfig, null);
+  assert.equal(response.payload.modelSettingsIntersectionCount, 0);
   assert.deepEqual(response.payload.objectOrdering, []);
   assert.equal(response.payload.annotatedTopImage, null);
 });
