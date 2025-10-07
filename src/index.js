@@ -8,7 +8,17 @@ import { parseGcode } from './gcodeUtils.js';
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-app.post('/process-file', upload.single('file'), async (req, res) => {
+function getEntryCaseInsensitive(zipInstance, targetPath) {
+  const directEntry = zipInstance.getEntry(targetPath);
+  if (directEntry) {
+    return directEntry;
+  }
+
+  const lowerTarget = targetPath.toLowerCase();
+  return zipInstance.getEntries().find(entry => entry.entryName.toLowerCase() === lowerTarget) || null;
+}
+
+export async function processFileHandler(req, res) {
   let zipPath;
   try {
     const tempPath = req.file.path;
@@ -24,7 +34,16 @@ app.post('/process-file', upload.single('file'), async (req, res) => {
     const gcodeData = gcodeEntry ? gcodeEntry.getData().toString() : null;
     const gcodeInfo = gcodeData ? parseGcode(gcodeData) : {};
 
-    res.json({ metadata, gcodeInfo, image, gcodeData });
+    const pickImageEntry = getEntryCaseInsensitive(zip, 'Metadata/pick_1.png');
+    const pickImage = pickImageEntry ? pickImageEntry.getData().toString('base64') : null;
+
+    const topImageEntry = getEntryCaseInsensitive(zip, 'Metadata/top_1.png');
+    const topImage = topImageEntry ? topImageEntry.getData().toString('base64') : null;
+
+    const sliceInfoEntry = getEntryCaseInsensitive(zip, 'Metadata/slice_info.config');
+    const sliceInfoConfig = sliceInfoEntry ? sliceInfoEntry.getData().toString() : null;
+
+    res.json({ metadata, gcodeInfo, image, gcodeData, pickImage, topImage, sliceInfoConfig });
   } catch (error) {
     res.status(500).json({ error: error.message });
   } finally {
@@ -32,9 +51,16 @@ app.post('/process-file', upload.single('file'), async (req, res) => {
       await fs.unlink(zipPath).catch(() => {});
     }
   }
-});
+}
+
+app.post('/process-file', upload.single('file'), processFileHandler);
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
+
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+  });
+}
+
+export default app;
