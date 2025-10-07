@@ -28,7 +28,9 @@ export async function processFileHandler(req, res) {
 
     const zip = new AdmZip(zipPath);
     const metadataEntry = zip.getEntry('Metadata/metadata.xml') || zip.getEntry('metadata.xml');
-    const metadata = metadataEntry ? parseMetadata(metadataEntry.getData().toString()) : {};
+    const metadata = metadataEntry
+      ? await parseMetadata(metadataEntry.getData().toString())
+      : { tree: null, plates: [], objects: [] };
     const imageEntry = zip.getEntry('Metadata/plate_1.png');
     const image = imageEntry ? imageEntry.getData().toString('base64') : null;
     const gcodeEntry = zip.getEntry('plate.gcode');
