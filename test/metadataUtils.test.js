@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMetadata } from '../src/metadataUtils.js';
+import { parseMetadata, parseConfigObjects } from '../src/metadataUtils.js';
 
 test('parseMetadata returns tree, plate metadata, and object summaries', async () => {
   const xml = `<?xml version="1.0"?>
@@ -72,4 +72,24 @@ test('parseMetadata returns empty structures for invalid input', async () => {
 
   const emptyResult = await parseMetadata('   ');
   assert.deepEqual(emptyResult, { tree: null, plates: [], objects: [] });
+});
+
+test('parseConfigObjects extracts object attributes without plate context', async () => {
+  const xml = `<?xml version="1.0"?>
+    <config>
+      <model identify_id="OBJ_10" name="Widget" skipped="false" />
+      <group>
+        <model identifyId="OBJ_20" name="Gadget" skipped="yes" />
+      </group>
+    </config>`;
+
+  const result = await parseConfigObjects(xml);
+
+  assert.equal(result.objects.length, 2);
+  const [first, second] = result.objects;
+  assert.equal(first.identifyId, 'OBJ_10');
+  assert.equal(first.name, 'Widget');
+  assert.equal(first.skipped, false);
+  assert.equal(second.identifyId, 'OBJ_20');
+  assert.equal(second.skipped, true);
 });
